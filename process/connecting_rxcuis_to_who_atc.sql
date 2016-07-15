@@ -1,15 +1,5 @@
 /* We want to map RxCUIs to ATC codes s*/
 
-create index idx_rxn_code on RxNorm.RxnConso(code);
-create index idx_rel_rc1 on RxNorm.RxnRel(rxcui1);
-create index idx_rel_rc2 on RxNorm.RxnRel(rxcui2);
-create index idx_rel_ra1 on RxNorm.RxnRel(rxaui1);
-create index idx_rel_ra2 on RxNorm.RxnRel(rxaui2);
-create index idx_rel_rela on RxNorm.RxnRel(rela);
-create index idx_rel_rela on RxNorm.RxnCONSO(rela);
-
-
-
 /* Create the ATC Table */
 
 drop table if exists rxnorm_prescribe.atc_ingredients;
@@ -34,27 +24,27 @@ create table rxnorm_prescribe.atc_ingredients as
      join rxnorm.rxnconso r1 on t.ATC1 = r1.Code and r1.SAB = 'ATC' and r1.tty = 'PT') tt
      order by tt.ATC5;
 
-  /* 4516 */
+  /* 4751 */
 
-select distinct atc2, atc2_Name from rxnorm_prescribe_atc_ingredients;
+select distinct atc2, atc2_Name from rxnorm_prescribe.atc_ingredients;
 /* 90 */
 
-select distinct atc3, atc3_Name from atc_ingredients;
+select distinct atc3, atc3_Name from rxnorm_prescribe.atc_ingredients;
 /* 243 */
 
-select distinct atc4, atc4_Name from atc_ingredients;
-/* 782 */
+select distinct atc4, atc4_Name from rxnorm_prescribe.atc_ingredients;
+/* 784 */
 
 create index idx_dd_scd_rxcui on rxnorm_prescribe.drug_details(scd_rxcui);
 
-select distinct t.indicator, t.counter, r2.str as dosage_form, ai.*, r2.rxcui as rxcui_dosage from atc_ingredients ai join
+select distinct t.indicator, t.counter, r2.str as dosage_form, ai.*, r2.rxcui as rxcui_dosage from rxnorm_prescribe.atc_ingredients ai join
    rxnrel rr1 on ai.rxcui = rr1.RXCUI2 and rela = 'ingredient_of' and rr1.SAB = 'RXNORM'
    join RxnConso r1 on r1.rxcui = rr1.RXCUI1 and r1.TTY = 'SCDF'
    join rxnrel rr2 on rr2.RXCUI2 = r1.RXCUI and rr2.rela = 'has_dose_form' and rr2.SAB = 'RXNORM'
    join RxnConso r2 on r2.rxcui = rr2.RXCUI1 and r2.TTY = 'FN'
    left outer join
     (select zz.atc5_name, 1 as indicator, count(*) as counter
-      from atc_ingredients zz group by zz.atc5_name having count(*) > 1) t
+      from rxnorm_prescribe.atc_ingredients zz group by zz.atc5_name having count(*) > 1) t
    on t.atc5_name = ai.atc5_name
    order by ai.atc5_name, ai.atc5, r2.str
     ;
@@ -71,23 +61,23 @@ select * from rxnorm_prescribe.drug_details dd join
 
 drop table if exists rxnorm_prescribe.atc_ingredient_link_to_in_rxcui1;
 
-create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui1
+create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui1 as
  select distinct ai.*, dd.dose_form_rxaui, dd.dose_form_rxcui, dd.dose_form, dd.rxn_human_drug, dd.rxterm_form, dd.synthetic_dfg_rxcui,
   dd.synthetic_dfg_rxaui, dd.synthetic_dose_form_group
     from rxnorm_prescribe.drug_details dd
-  join  rxnorm_prescribe.relation_between_ingredient_clinical_drug rcd on dd.scd_rxcui = rcd.scd_rxcui
-  join rxnorm_prescribe.ingredient_details id on id.in_rxaui = rcd.in_rxaui
+  join  rxnorm_prescribe.relation_between_ingredient_clinical_drug1 rcd on dd.scd_rxcui = rcd.scd_rxcui
+  join rxnorm_prescribe.ingredient1 id on id.in_rxaui = rcd.in_rxaui
   join rxnorm_prescribe.atc_ingredients ai on ai.rxcui = id.in_rxcui
   order by ATC5_Name, ATC5;
 
 
 drop table if exists rxnorm_prescribe.atc_ingredient_link_to_in_rxcui2;
 
-create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui2
-  select t.* from (
+create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui2 as
+  select tt.* from (
     select ail.*, t.counter from rxnorm_prescribe.atc_ingredient_link_to_in_rxcui1 ail join (
       select rxcui, ATC5_Name, count(distinct atc5) as counter from rxnorm_prescribe.atc_ingredient_link_to_in_rxcui1
-      group by ATC5_Name) t where t.rxcui = ail.rxcui) t order by counter desc, atc5_name, atc5;
+      group by ATC5_Name, rxcui) t on t.rxcui = ail.rxcui) tt order by counter desc, atc5_name, atc5;
 
 
 select count(*) as counter,
@@ -95,7 +85,7 @@ select count(*) as counter,
   group by dose_form, rxterm_form ,atc1_name
   order by count(*) desc;
 
-/* 46 */
+/* 53 */
 
 /*
  ('Ophthalmic Gel', 'Topical Solution', 'Otic Solution', 'Topical Lotion', 'Topical Foam', 'Vaginal Cream', 'Transdermal Patch','Irrigation Solution','TOPICAL SPRAY','Topical Gel','Topical Ointment','Topical Cream','Ophthalmic Solution')
@@ -103,7 +93,7 @@ select count(*) as counter,
 
 drop table if exists rxnorm_prescribe.atc_ingredient_link_to_in_rxcui3;
 
-create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui3
+create table rxnorm_prescribe.atc_ingredient_link_to_in_rxcui3 as
   select * from rxnorm_prescribe.atc_ingredient_link_to_in_rxcui2;
 
 delete from rxnorm_prescribe.atc_ingredient_link_to_in_rxcui3 where rxn_human_drug is NULL;
@@ -1348,12 +1338,13 @@ drop table if exists rxnorm_prescribe.scd_mapped_to_synthetic_atc;
 
 create table rxnorm_prescribe.scd_mapped_to_synthetic_atc as
   select dd.scd_rxaui, dd.scd_rxcui, dd.semantic_clinical_drug, count(distinct ailrc.atc5) as counter,
-    GROUP_CONCAT(distinct ailrc.atc5 order by ailrc.atc5 asc separator '|') as synthetic_atc5,
-    GROUP_CONCAT(distinct ailrc.atc5_name order by ailrc.atc5_name asc separator '|') as synthetic_atc5_name,
+    string_agg(distinct ailrc.atc5, '|' order by ailrc.atc5 asc) as synthetic_atc5,
+    string_agg(distinct ailrc.atc5_name, '|' order by ailrc.atc5_name) as synthetic_atc5_name,
     1 as step
-  from rxnorm_prescribe.drug_details dd join rxnorm_prescribe.relation_between_ingredient_clinical_drug rbicd on dd.scd_rxaui = rbicd.scd_rxaui
+  from rxnorm_prescribe.drug_details dd join
+    rxnorm_prescribe.relation_between_ingredient_clinical_drug1 rbicd on dd.scd_rxaui = rbicd.scd_rxaui
     join rxnorm_prescribe.atc_ingredient_link_to_rxcui_curated ailrc on dd.dose_form_rxaui = ailrc.dose_form_rxaui and rbicd.in_rxcui = ailrc.rxcui
-    group by scd_rxaui, scd_rxcui, dd.semantic_clinical_drug;
+    group by dd.scd_rxaui, dd.scd_rxcui, dd.semantic_clinical_drug;
 
 create unique index idx_scd_atc_rxaui on rxnorm_prescribe.scd_mapped_to_synthetic_atc(scd_rxaui);
 
@@ -1701,57 +1692,57 @@ select nddwa1.*, ai.ATC1, ai.ATC1_Name, ai.ATC2, ai.ATC2_Name, ai.ATC3, ai.ATC3_
 
 create unique index idx_rp_nddandc on rxnorm_prescribe.ndc_drug_details_with_atc(ndc);
 
-create unique index idx_ndc9_synthetic_rxcui on rxnorm_prescribe.ndc9_synthetic_rxcui(ndc9);
-alter table rxnorm_prescribe.ndc9_synthetic_rxcui drop synthetic_rxcui_key;
-alter table rxnorm_prescribe.ndc9_synthetic_rxcui add synthetic_rxcui_key varchar(255);
-update  rxnorm_prescribe.ndc9_synthetic_rxcui set synthetic_rxcui_key = left(synthetic_rxcui,255);
-create  index idx_srxcui_ndc_sr on rxnorm_prescribe.ndc9_synthetic_rxcui(synthetic_rxcui_key);
+--create unique index idx_ndc9_synthetic_rxcui on rxnorm_prescribe.ndc9_synthetic_rxcui(ndc9);
+--alter table rxnorm_prescribe.ndc9_synthetic_rxcui drop synthetic_rxcui_key;
+--alter table rxnorm_prescribe.ndc9_synthetic_rxcui add synthetic_rxcui_key varchar(255);
+--update  rxnorm_prescribe.ndc9_synthetic_rxcui set synthetic_rxcui_key = left(synthetic_rxcui,255);
+--create  index idx_srxcui_ndc_sr on rxnorm_prescribe.ndc9_synthetic_rxcui(synthetic_rxcui_key);
 
 create  index idx_sbdrxcui_drug_details on rxnorm_prescribe.drug_details_with_atc(sbd_rxcui);
 create  index idx_scdrxcui_drug_details on rxnorm_prescribe.drug_details_with_atc(scd_rxcui);
 
-drop table if exists rxnorm_prescribe.ndc9_drug_details_with_atc;
-create table rxnorm_prescribe.ndc9_drug_details_with_atc as
-  select * from rxnorm_prescribe.ndc9_synthetic_rxcui nsr join
-    rxnorm_prescribe.drug_details_with_atc dd on nsr.synthetic_rxcui_key = dd.sbd_rxcui and dd.TTY = 'SBD';
+--drop table if exists rxnorm_prescribe.ndc9_drug_details_with_atc;
+--create table rxnorm_prescribe.ndc9_drug_details_with_atc as
+--  select * from rxnorm_prescribe.ndc9_synthetic_rxcui nsr join
+--    rxnorm_prescribe.drug_details_with_atc dd on nsr.synthetic_rxcui_key = dd.sbd_rxcui and dd.TTY = 'SBD';
 
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify sbd_rxaui varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify sbd_rxcui varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify bn_rxcui varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify bn_rxaui varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify brand_name	varchar(3000);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify semantic_branded_name	varchar(3000);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify sbd_rxaui varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify sbd_rxcui varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify bn_rxcui varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify bn_rxaui varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify brand_name	varchar(3000);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify semantic_branded_name	varchar(3000);
 
 
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify SAB	varchar(20);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify TTY	varchar(20);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form_rxaui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form_rxcui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form	varchar(3000);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify scd_rxaui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify scd_rxcui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify semantic_clinical_drug	varchar(3000);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify number_of_ingredients	bigint(21);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name_rxcui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name_rxaui	varchar(8);
-alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name	varchar(3000);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify SAB	varchar(20);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify TTY	varchar(20);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form_rxaui	varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form_rxcui	varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify dose_form	varchar(3000);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify scd_rxaui	varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify scd_rxcui	varchar(8);-
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify semantic_clinical_drug	varchar(3000);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify number_of_ingredients	bigint(21);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name_rxcui	varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name_rxaui	varchar(8);
+--alter table rxnorm_prescribe.ndc9_drug_details_with_atc modify generic_name	varchar(3000);
 
-create unique index idx_ndc9_dd_ndc9 on rxnorm_prescribe.ndc9_drug_details_with_atc(ndc9);
+--create unique index idx_ndc9_dd_ndc9 on rxnorm_prescribe.ndc9_drug_details_with_atc(ndc9);
 
-insert into rxnorm_prescribe.ndc9_drug_details_with_atc
-  select distinct * from rxnorm_prescribe.ndc9_synthetic_rxcui nsr join
-    rxnorm_prescribe.drug_details_with_atc dd on nsr.synthetic_rxcui_key = dd.scd_rxcui and dd.TTY = 'SCD'
-      and nsr.ndc9 not in (select ndc9 from rxnorm_prescribe.ndc9_drug_details_with_atc)
-    ;
+--insert into rxnorm_prescribe.ndc9_drug_details_with_atc
+--  select distinct * from rxnorm_prescribe.ndc9_synthetic_rxcui nsr join
+--    rxnorm_prescribe.drug_details_with_atc dd on nsr.synthetic_rxcui_key = dd.scd_rxcui and dd.TTY = 'SCD'
+--      and nsr.ndc9 not in (select ndc9 from rxnorm_prescribe.ndc9_drug_details_with_atc)
+--    ;
 
-drop table if exists rxnorm_prescribe.ndc9_with_drug_details;
-create table rxnorm_prescribe.ndc9_with_drug_details as
- select distinct n9sr.ndc9 from rxnorm_prescribe.ndc9_drug_details_with_atc n9ddwa join rxnorm_prescribe.ndc9_synthetic_rxcui n9sr
-  on n9sr.ndc9 = n9ddwa.ndc9;
+--drop table if exists rxnorm_prescribe.ndc9_with_drug_details;-
+--create table rxnorm_prescribe.ndc9_with_drug_details as
+-- select distinct n9sr.ndc9 from rxnorm_prescribe.ndc9_drug_details_with_atc n9ddwa join rxnorm_prescribe.ndc9_synthetic_rxcui n9sr
+--  on n9sr.ndc9 = n9ddwa.ndc9;
 
-create unique index idx_n9wddwa_dd_ndc9 on rxnorm_prescribe.ndc9_with_drug_details(ndc9);
+--create unique index idx_n9wddwa_dd_ndc9 on rxnorm_prescribe.ndc9_with_drug_details(ndc9);
 
-insert into rxnorm_prescribe.ndc9_drug_details_with_atc
-  (synthetic_rxcui,synthetic_label,compact_counter,ndc9,synthetic_rxcui_key)
-    select synthetic_rxcui,synthetic_label,compact_counter,ndc9,synthetic_rxcui_key from rxnorm_prescribe.ndc9_synthetic_rxcui
-    where ndc9 not in (select ndc9 from rxnorm_prescribe.ndc9_with_drug_details);
+--insert into rxnorm_prescribe.ndc9_drug_details_with_atc
+--  (synthetic_rxcui,synthetic_label,compact_counter,ndc9,synthetic_rxcui_key)
+--    select synthetic_rxcui,synthetic_label,compact_counter,ndc9,synthetic_rxcui_key from rxnorm_prescribe.ndc9_synthetic_rxcui
+--    where ndc9 not in (select ndc9 from rxnorm_prescribe.ndc9_with_drug_details);
